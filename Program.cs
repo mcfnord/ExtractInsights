@@ -225,13 +225,13 @@ public class FindPatterns
         var dedupedGroups = new List<GroupEvent>();
 
         // if the file exists, don't re-load
-        const string RAW_DATA_FILE = @"c:\users\user\raw.json";
+        const string RAW_DATA_FILE = "cooked.json";
         while (true)
         {
             if (false == System.IO.File.Exists(RAW_DATA_FILE))
             {
                 // Create a reader object and read the CSV file into a list of objects
-                var reader = new StreamReader("c:\\users\\user\\trimmed_census_6.csv");
+                var reader = new StreamReader("census_uniq.csv");
 
                 using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
                 {
