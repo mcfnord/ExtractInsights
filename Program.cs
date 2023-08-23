@@ -21,14 +21,9 @@ public class PersonOnServerAtTime
     public string Time { get; set; }
 }
 
-public class GroupEvent
+public class BaseGroupEvent
 {
     // constructor that creates the People HashSet object
-    public GroupEvent()
-    {
-        People = new HashSet<string>();
-    }
-    public HashSet<string> People { get; set; }
     public string Server { get; set; }
     public int StartMinute { get; set; }
     public int EndMinute { get; set; }
@@ -46,10 +41,36 @@ public class GroupEvent
 
 }
 
+public class InternalGroupEvent : BaseGroupEvent
+{
+    public InternalGroupEvent()
+    {
+        PeopleGuids = new HashSet<string>();
+    }
+
+    public HashSet<string> PeopleGuids { get; set; }
+
+}
+
+public class MusicianMetadata
+{
+    public string Guid { get; set; }
+    public string Name { get; set; }
+    public string Instrument { get; set; }
+    public string City { get; set; }
+    public string Country { get; set; }
+}
+
+public class FriendlyGroupEvent : BaseGroupEvent
+{
+    public HashSet<MusicianMetadata> People { get; set; }
+}
+
+
 public class FindPatterns
 {
     // do I see these people in any group at any time in this range?
-    public static GroupEvent? AssembledAnyTimeInRange(List<GroupEvent> groups, HashSet<string> people, int rangeStart, int rangeDuration)
+    public static InternalGroupEvent? AssembledAnyTimeInRange(List<InternalGroupEvent> groups, HashSet<string> people, int rangeStart, int rangeDuration)
     {
         int rangeEnd = rangeStart + rangeDuration;
 
@@ -78,12 +99,12 @@ public class FindPatterns
             int iPeopleMatched = 0;
             foreach (var person in people)
             {
-                if (group.People.Contains(person))
+                if (group.PeopleGuids.Contains(person))
                     iPeopleMatched++;
             }
 
             int iGroupMatched = 0;
-            foreach (var person in group.People)
+            foreach (var person in group.PeopleGuids)
             {
                 if (people.Contains(person))
                     iGroupMatched++;
@@ -91,7 +112,7 @@ public class FindPatterns
 
             if (people.Count / 2 < iPeopleMatched)
                 return group;
-            if (group.People.Count / 2 < iGroupMatched)
+            if (group.PeopleGuids.Count / 2 < iGroupMatched)
                 return group;
 
             return null;
@@ -99,7 +120,7 @@ public class FindPatterns
         return null;
     }
 
-    public static GroupEvent? AssembledAnyTimeRange(HashSet<GroupEvent> groupaGroupEvents, int rangeStart, int rangeDuration)
+    public static InternalGroupEvent? AssembledAnyTimeRange(HashSet<InternalGroupEvent> groupaGroupEvents, int rangeStart, int rangeDuration)
     {
         int rangeEnd = rangeStart + rangeDuration;
         foreach (var group in groupaGroupEvents)
@@ -127,17 +148,17 @@ public class FindPatterns
 
 
 
-    public static bool AssembledNow(List<GroupEvent> groups, GroupEvent group)
+    public static bool AssembledNow(List<InternalGroupEvent> groups, InternalGroupEvent group)
     {
         return false;
     }
 
 
-    public static GroupEvent GroupInGroups(GroupEvent group, List<GroupEvent> dedupedGroups)
+    public static InternalGroupEvent GroupInGroups(InternalGroupEvent group, List<InternalGroupEvent> dedupedGroups)
     {
         foreach (var g in dedupedGroups)
         {
-            if (g.People.SetEquals(group.People))
+            if (g.PeopleGuids.SetEquals(group.PeopleGuids))
                 return g;
         }
         return null;
@@ -156,6 +177,7 @@ public class FindPatterns
 
 
 
+    /* we aren't gonna use guidNamePairs
     //     static bool fNamesLoaded = false;
     // static Object nameMap = null;
     static KeyValuePair<string, string>[] NameMap()
@@ -168,50 +190,86 @@ public class FindPatterns
         //        }
         //        return nameMap;
     }
+    */
 
 
-
-    public static void WeSaw(GroupEvent ge)
+    // first time, load data.
+    // from then on, use loaded data.
+    static bool gfLoaded = false;
+    static List<MusicianMetadata> allMusicians = null;
+    static string? NameMetadata(string guid)
     {
-        Console.WriteLine(ge.People.Count + " musicians on " + ge.Server + " for " + ge.Duration + " minutes starting at " + ge.StartMinute);
-        foreach (var str in ge.People)
+        if (false == gfLoaded)
         {
-            string name = "";
-            foreach (var item in NameMap())
+            var reader = new StreamReader("census_metadata.csv");
+
+            using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
             {
-                if (item.Key == str)
-                {
-                    name = item.Value;
-                    break;
-                }
+                allMusicians = csv.GetRecords<MusicianMetadata>().ToList();
             }
-            if (name.Length > 0)
-                Console.WriteLine("   " + name);
-            else
-                Console.WriteLine("        " + str);
+            gfLoaded = true;
+        }
+
+        foreach (var musician in allMusicians)
+            if (musician.Guid == guid)
+                return musician.Name;
+        return null;
+    }
+
+    static string? InstrumentMetadata(string guid)
+    {
+        foreach (var musician in allMusicians)
+            if (musician.Guid == guid)
+                return musician.Instrument;
+        return null;
+    }
+
+    static string? CityMetadata(string guid)
+    {
+        foreach (var musician in allMusicians)
+            if (musician.Guid == guid)
+                return musician.City;
+        return null;
+    }
+
+    static string? CountryMetadata(string guid)
+    {
+        foreach (var musician in allMusicians)
+            if (musician.Guid == guid)
+                return musician.Country;
+        return null;
+    }
+
+
+    public static void WeSaw(InternalGroupEvent ge)
+    {
+        Console.WriteLine(ge.PeopleGuids.Count + " musicians on " + ge.Server + " for " + ge.Duration + " minutes starting at " + ge.StartMinute);
+        foreach (var guid in ge.PeopleGuids)
+        {
+            Console.Write("   " + NameMetadata(guid));
         }
         Console.WriteLine();
     }
 
-    static bool LooseMemberMatch(GroupEvent ge1, GroupEvent ge2)
+    static bool LooseMemberMatch(InternalGroupEvent ge1, InternalGroupEvent ge2)
     {
         int ige1Matched = 0;
-        foreach (var person in ge1.People)
+        foreach (var person in ge1.PeopleGuids)
         {
-            if (ge2.People.Contains(person))
+            if (ge2.PeopleGuids.Contains(person))
                 ige1Matched++;
         }
 
         int ige2Matched = 0;
-        foreach (var person in ge2.People)
+        foreach (var person in ge2.PeopleGuids)
         {
-            if (ge1.People.Contains(person))
+            if (ge1.PeopleGuids.Contains(person))
                 ige2Matched++;
         }
 
-        if (ge1.People.Count / 2 < ige1Matched)
+        if (ge1.PeopleGuids.Count / 2 < ige1Matched)
             return true;
-        if (ge2.People.Count / 2 < ige2Matched)
+        if (ge2.PeopleGuids.Count / 2 < ige2Matched)
             return true;
 
         return false;
@@ -222,7 +280,7 @@ public class FindPatterns
 
     public static void Main()
     {
-        var dedupedGroups = new List<GroupEvent>();
+        var dedupedGroups = new List<InternalGroupEvent>();
 
         // if the file exists, don't re-load
         const string RAW_DATA_FILE = "cooked.json";
@@ -245,7 +303,7 @@ public class FindPatterns
                     int endOfSample = Int32.Parse(records[0].Time);
 
                     // Now create GroupTogether objects
-                    var groups = new List<GroupEvent>();
+                    var groups = new List<InternalGroupEvent>();
 
                     // Sort by server, then by minute
 
@@ -275,11 +333,11 @@ public class FindPatterns
 
                     foreach (var key in protoClique.Keys)
                     {
-                        var group = new GroupEvent();
+                        var group = new InternalGroupEvent();
                         group.Server = key.Substring(6);
                         group.StartMinute = Int32.Parse(key.Substring(0, 6));
                         group.EndMinute = Int32.Parse(key.Substring(0, 6)); // so zero duration at start, extended in next loop
-                        group.People = protoClique[key];
+                        group.PeopleGuids = protoClique[key];
                         groups.Add(group);
                     }
 
@@ -296,7 +354,7 @@ public class FindPatterns
                             {
                                 // check if all the people in the group are in the next minute's clique
                                 // It's ok if noobs appear? Yes. 
-                                foreach (var person in group.People)
+                                foreach (var person in group.PeopleGuids)
                                 {
                                     if (false == protoClique[nextKey].Contains(person))
                                     {
@@ -319,14 +377,14 @@ public class FindPatterns
                     // Sort by group size times duration (in minutes)
                     // And let's dump the smaller, shorter groups.
 
-                    groups.Sort((x, y) => (y.People.Count * y.Duration).CompareTo(x.People.Count * x.Duration));
-                    var topGroups = new List<GroupEvent>();
+                    groups.Sort((x, y) => (y.PeopleGuids.Count * y.Duration).CompareTo(x.PeopleGuids.Count * x.Duration));
+                    var topGroups = new List<InternalGroupEvent>();
                     foreach (var group in groups)
                     {
-                        if (group.People.Count > 2)
+                        if (group.PeopleGuids.Count > 2)
                             if (group.Duration > 10)
                             {
-                                Console.WriteLine("Server: " + group.Server + " Start: " + group.StartMinute + " Size: " + group.People.Count + " Duration: " + (group.Duration));
+                                Console.WriteLine("Server: " + group.Server + " Start: " + group.StartMinute + " Size: " + group.PeopleGuids.Count + " Duration: " + (group.Duration));
                                 topGroups.Add(group);
                             }
                     }
@@ -339,7 +397,7 @@ public class FindPatterns
 
                     foreach (var group in groups)
                     {
-                        GroupEvent alreadyFoundGroup = null;
+                        InternalGroupEvent alreadyFoundGroup = null;
                         alreadyFoundGroup = GroupInGroups(group, dedupedGroups);
                         if (null == alreadyFoundGroup)
                         {
@@ -386,7 +444,7 @@ public class FindPatterns
                     //                dedupedGroups.Sort((x, y) => (y.People.Count).CompareTo(x.People.Count));
                     dedupedGroups.Sort((x, y) =>
                     {
-                        int countCompare = y.People.Count.CompareTo(x.People.Count);
+                        int countCompare = y.PeopleGuids.Count.CompareTo(x.PeopleGuids.Count);
                         if (countCompare != 0)
                             return countCompare;
                         return y.Duration.CompareTo(x.Duration);
@@ -398,19 +456,19 @@ public class FindPatterns
             }
 
             var f = System.IO.File.ReadAllText(RAW_DATA_FILE);
-            dedupedGroups = System.Text.Json.JsonSerializer.Deserialize<List<GroupEvent>>(f);
+            dedupedGroups = System.Text.Json.JsonSerializer.Deserialize<List<InternalGroupEvent>>(f);
 
-            HashSet<HashSet<GroupEvent>> bunchedGroupings = new HashSet<HashSet<GroupEvent>>();
+            HashSet<HashSet<InternalGroupEvent>> bunchedGroupings = new HashSet<HashSet<InternalGroupEvent>>();
 
             // Now group the groupEvents by membership
-            List<GroupEvent> listOfGroupEvents = dedupedGroups.ToList<GroupEvent>();
+            List<InternalGroupEvent> listOfGroupEvents = dedupedGroups.ToList<InternalGroupEvent>();
             listOfGroupEvents.Reverse();
             for (int iPos = listOfGroupEvents.Count - 1; iPos >= 0; iPos--)
             {
                 var thisEvent = listOfGroupEvents[iPos];
                 listOfGroupEvents.RemoveAt(iPos);
                 iPos--;
-                var thisGroupOfGroups = new HashSet<GroupEvent> { thisEvent };
+                var thisGroupOfGroups = new HashSet<InternalGroupEvent> { thisEvent };
                 bunchedGroupings.Add(thisGroupOfGroups);
 
                 // for each loose match to thisEvent, move item from one list to the other
@@ -430,20 +488,20 @@ public class FindPatterns
 
             Console.WriteLine("Current time: " + MinuteSince2023AsInt().ToString());
 
-            List<GroupEvent> chosen = new List<GroupEvent>();
+            List<InternalGroupEvent> chosen = new List<InternalGroupEvent>();
 
             foreach (var groupaGroupEvents in bunchedGroupings)
             {
                 const int FULL_DAY = 60 * 24;
                 const int FULL_WEEK = FULL_DAY * 7;
 
-                var match1 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - FULL_WEEK, 360);
+                var match1 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - FULL_WEEK, 480);
                 if (null != match1)
                 {
-                    var match2 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 2 * FULL_WEEK, 360);
+                    var match2 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 2 * FULL_WEEK, 480);
                     if (null != match2)
                     {
-                        var match3 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 3 * FULL_WEEK, 360);
+                        var match3 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 3 * FULL_WEEK, 480);
                         if (null != match3)
                         {
                             //                        var match4 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 4 * FULL_WEEK, 120);
@@ -467,30 +525,30 @@ public class FindPatterns
                                         Console.WriteLine("Deviation from most recent start: " + (match3.StartMinute + FULL_WEEK * 2 - match1.StartMinute).ToString());
                                         Console.WriteLine("============================");
 
-                                        GroupEvent geHybrid = new GroupEvent();
+                                        InternalGroupEvent geHybrid = new InternalGroupEvent();
 
                                         // Determine who appears in all 3
-                                        foreach (var p1 in match1.People)
+                                        foreach (var p1 in match1.PeopleGuids)
                                         {
-                                            if (geHybrid.People.Contains(p1))
+                                            if (geHybrid.PeopleGuids.Contains(p1))
                                                 continue;   // so loggin in twice does nuttin
 
-                                            if (match2.People.Contains(p1))
-                                                if (match3.People.Contains(p1))
-                                                    geHybrid.People.Add(p1);
+                                            if (match2.PeopleGuids.Contains(p1))
+                                                if (match3.PeopleGuids.Contains(p1))
+                                                    geHybrid.PeopleGuids.Add(p1);
                                         }
 
                                         // if there weren't three-matches, try two-matches with the most recent
-                                        if (geHybrid.People.Count == 0)
+                                        if (geHybrid.PeopleGuids.Count == 0)
                                         {
                                             // Determine who appears in all 3
-                                            foreach (var p1 in match1.People)
+                                            foreach (var p1 in match1.PeopleGuids)
                                             {
-                                                if (geHybrid.People.Contains(p1))
+                                                if (geHybrid.PeopleGuids.Contains(p1))
                                                     continue;   // so loggin in twice does nuttin
 
-                                                if (match2.People.Contains(p1) || match3.People.Contains(p1))
-                                                    geHybrid.People.Add(p1);
+                                                if (match2.PeopleGuids.Contains(p1) || match3.PeopleGuids.Contains(p1))
+                                                    geHybrid.PeopleGuids.Add(p1);
                                             }
                                         }
 
@@ -527,7 +585,31 @@ public class FindPatterns
                 }
             }
 
-            var jsonStringPredicted = JsonSerializer.Serialize(chosen);
+            // ok, chosen needs to be dereferenced for names, and intrumstnet and city and country need to appear
+
+            List<FriendlyGroupEvent> friendlyEvents = new List<FriendlyGroupEvent>();
+
+            foreach(var futurejam in chosen)
+            {
+                FriendlyGroupEvent fge = new FriendlyGroupEvent();
+                fge.StartMinute = futurejam.StartMinute;
+                fge.EndMinute = futurejam.EndMinute;
+                fge.Server = futurejam.Server;
+                fge.People = new HashSet<MusicianMetadata>();
+                foreach(var personGuid in futurejam.PeopleGuids)
+                {
+                    MusicianMetadata fp = new MusicianMetadata();
+                    fp.Guid = personGuid;
+                    fp.Name = NameMetadata(personGuid);
+                    fp.Instrument = InstrumentMetadata(personGuid);
+                    fp.City = CityMetadata(personGuid);
+                    fp.Country = CountryMetadata(personGuid);
+                    fge.People.Add(fp);
+                }
+                friendlyEvents.Add(fge);
+            }
+            
+            var jsonStringPredicted = JsonSerializer.Serialize(friendlyEvents);
             System.IO.File.WriteAllText("predicted.json", jsonStringPredicted);
             Console.WriteLine(jsonStringPredicted);
 
