@@ -1,4 +1,6 @@
-﻿using System;
+﻿#define WINDOWS
+
+using System;
 using System.IO;
 using System.Collections.Generic;
 using CsvHelper;
@@ -64,7 +66,7 @@ public class MusicianMetadata
 public class FriendlyGroupEvent : BaseGroupEvent
 {
     public HashSet<MusicianMetadata> People { get; set; }
-    public int MinutesUntil { get { return FindPatterns.MinuteSince2023AsInt() - StartMinute; } }
+    public int MinutesUntil { get { return StartMinute - FindPatterns.MinuteSince2023AsInt();  } }
 }
 
 
@@ -173,7 +175,10 @@ public class FindPatterns
         // Format ToString to just show an int.
 
         int mins = (int)(diff.TotalMinutes);
-        return mins + 420;
+#if WINDOWS
+        mins += 420;
+#endif
+        return mins ;
     }
 
 
@@ -621,8 +626,23 @@ public class FindPatterns
             }
             
             var jsonStringPredicted = JsonSerializer.Serialize(friendlyEvents);
-            System.IO.File.WriteAllText("/var/www/html/predicted.json", jsonStringPredicted);
-            Console.WriteLine(jsonStringPredicted);
+            try
+            {
+                System.IO.File.WriteAllText("/var/www/html/predicted.json", jsonStringPredicted);
+            }
+            catch( System.IO.DirectoryNotFoundException)
+            {
+                Console.WriteLine("Directory not found because debugging on Windows.");
+            }
+
+
+            string jsonStringFormatted = JsonSerializer.Serialize(jsonStringPredicted, new JsonSerializerOptions
+            {
+                WriteIndented = true // This option adds indentation for better readability
+            });
+
+            // Output the JSON string
+            Console.WriteLine(jsonStringFormatted);
 
             Thread.Sleep(1000 * 60 * 10);
         }
