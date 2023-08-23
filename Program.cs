@@ -620,7 +620,7 @@ public class FindPatterns
             }
             
             var jsonStringPredicted = JsonSerializer.Serialize(friendlyEvents);
-            System.IO.File.WriteAllText("predicted.json", jsonStringPredicted);
+            System.IO.File.WriteAllText("/var/www/html/predicted.json", jsonStringPredicted);
             Console.WriteLine(jsonStringPredicted);
 
             Thread.Sleep(1000 * 60 * 10);
