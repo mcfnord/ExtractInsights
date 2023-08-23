@@ -64,6 +64,7 @@ public class MusicianMetadata
 public class FriendlyGroupEvent : BaseGroupEvent
 {
     public HashSet<MusicianMetadata> People { get; set; }
+    public int MinutesUntil { get { return FindPatterns.MinuteSince2023AsInt() - StartMinute; } }
 }
 
 
