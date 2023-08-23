@@ -511,13 +511,13 @@ public class FindPatterns
                 const int FULL_DAY = 60 * 24;
                 const int FULL_WEEK = FULL_DAY * 7;
 
-                var match1 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - FULL_WEEK, 480);
+                var match1 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - FULL_WEEK, FULL_DAY);
                 if (null != match1)
                 {
-                    var match2 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 2 * FULL_WEEK, 480);
+                    var match2 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 2 * FULL_WEEK, FULL_DAY);
                     if (null != match2)
                     {
-                        var match3 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 3 * FULL_WEEK, 480);
+                        var match3 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 3 * FULL_WEEK, FULL_DAY);
                         if (null != match3)
                         {
                             //                        var match4 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 4 * FULL_WEEK, 120);
@@ -612,18 +612,25 @@ public class FindPatterns
                 fge.EndMinute = futurejam.EndMinute;
                 fge.Server = futurejam.Server;
                 fge.People = new HashSet<MusicianMetadata>();
+                int iNumStreamers = 0;
                 foreach(var personGuid in futurejam.PeopleGuids)
                 {
                     MusicianMetadata fp = new MusicianMetadata();
                     fp.Guid = personGuid;
                     fp.Name = NameMetadata(personGuid);
                     fp.Instrument = InstrumentMetadata(personGuid);
+                    if (fp.Instrument == "Streamer")
+                        iNumStreamers++;
                     fp.City = CityMetadata(personGuid);
                     fp.Country = CountryMetadata(personGuid);
                     fge.People.Add(fp);
                 }
-                friendlyEvents.Add(fge);
+                if(iNumStreamers < futurejam.PeopleGuids.Count / 2)
+                    friendlyEvents.Add(fge); // we only caare if it's not a majority streamers. screw those.
             }
+
+            // sort by start time
+            friendlyEvents.Sort((x, y) => x.StartMinute.CompareTo(y.StartMinute));
             
             var jsonStringPredicted = JsonSerializer.Serialize(friendlyEvents);
             try
@@ -644,7 +651,7 @@ public class FindPatterns
             // Output the JSON string
             Console.WriteLine(jsonStringFormatted);
 
-            Thread.Sleep(1000 * 60 * 10);
+            Thread.Sleep(1000 * 60 * 5); // wait just 5 minutes because the ComingUp time gets stale.
         }
     }
 }
