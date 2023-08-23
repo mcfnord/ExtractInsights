@@ -219,8 +219,14 @@ public class FindPatterns
     static string? InstrumentMetadata(string guid)
     {
         foreach (var musician in allMusicians)
+
             if (musician.Guid == guid)
-                return musician.Instrument;
+            {
+                if (musician.Instrument == "-")
+                    return "";
+                else
+                    return musician.Instrument;
+            }
         return null;
     }
 
