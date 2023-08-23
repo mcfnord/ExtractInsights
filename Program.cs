@@ -242,7 +242,11 @@ public class FindPatterns
     {
         foreach (var musician in allMusicians)
             if (musician.Guid == guid)
+            {
+                if (musician.Country == "-")
+                    return "";
                 return musician.Country;
+            }
         return null;
     }
 
