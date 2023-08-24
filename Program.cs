@@ -26,7 +26,7 @@ public class PersonOnServerAtTime
 public class BaseGroupEvent
 {
     // constructor that creates the People HashSet object
-    public string Server { get; set; }
+    public string ServerIpPort { get; set; }
     public int StartMinute { get; set; }
     public int EndMinute { get; set; }
     public int Duration { get { return EndMinute - StartMinute; } }
@@ -67,7 +67,20 @@ public class FriendlyGroupEvent : BaseGroupEvent
 {
     public HashSet<MusicianMetadata> People { get; set; }
     public int MinutesUntil { get { return StartMinute - FindPatterns.MinuteSince2023AsInt();  } }
+    public string ServerName { get; set; }
+    public string ServerCity { get; set; }
+    public string ServerCountry { get; set; }
+
 }
+
+public class ServerMetadata
+{
+    public string IpPort { get; set; }
+    public string Name { get; set; }
+    public string City { get; set; }
+    public string Country { get; set; }
+}
+
 
 
 public class FindPatterns
@@ -257,9 +270,51 @@ public class FindPatterns
     }
 
 
+
+    static bool gfServerMetadataLoaded = false;
+    static List<ServerMetadata> allServerMetadata = null;
+
+static string ServerNameMetadata(string ipPort)
+    {
+        if (ipPort == null)
+            return "";
+        if (false == gfServerMetadataLoaded)
+        {
+            var reader = new StreamReader("servers_metadata.csv");
+
+            using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+            {
+                allServerMetadata = csv.GetRecords<ServerMetadata>().ToList();
+            }
+            gfServerMetadataLoaded = true;
+        }
+
+        foreach (var server in allServerMetadata)
+            if (server.IpPort == ipPort)
+                return server.Name;
+        return "";
+
+    }
+
+    static string ServerCityMetadata(string ipPort)
+    {
+        foreach (var server in allServerMetadata)
+            if (server.IpPort == ipPort)
+                return server.City;
+        return "";
+    }
+
+    static string ServerCountryMetadata(string ipPort)
+    {
+        foreach (var server in allServerMetadata)
+            if (server.IpPort == ipPort)
+                return server.Country;
+        return "";
+    }
+
     public static void WeSaw(InternalGroupEvent ge)
     {
-        Console.WriteLine(ge.PeopleGuids.Count + " musicians on " + ge.Server + " for " + ge.Duration + " minutes starting at " + ge.StartMinute);
+        Console.WriteLine(ge.PeopleGuids.Count + " musicians on " + ge.ServerIpPort + " for " + ge.Duration + " minutes starting at " + ge.StartMinute);
         foreach (var guid in ge.PeopleGuids)
         {
             Console.Write("   " + NameMetadata(guid));
@@ -350,7 +405,7 @@ public class FindPatterns
                     foreach (var key in protoClique.Keys)
                     {
                         var group = new InternalGroupEvent();
-                        group.Server = key.Substring(6);
+                        group.ServerIpPort = key.Substring(6);
                         group.StartMinute = Int32.Parse(key.Substring(0, 6));
                         group.EndMinute = Int32.Parse(key.Substring(0, 6)); // so zero duration at start, extended in next loop
                         group.PeopleGuids = protoClique[key];
@@ -365,7 +420,7 @@ public class FindPatterns
                         while (stillTogether)
                         {
                             int nextMinute = group.EndMinute + 1;
-                            string nextKey = nextMinute.ToString() + group.Server;
+                            string nextKey = nextMinute.ToString() + group.ServerIpPort;
                             if (protoClique.ContainsKey(nextKey))
                             {
                                 // check if all the people in the group are in the next minute's clique
@@ -400,7 +455,7 @@ public class FindPatterns
                         if (group.PeopleGuids.Count > 2)
                             if (group.Duration > 10)
                             {
-                                Console.WriteLine("Server: " + group.Server + " Start: " + group.StartMinute + " Size: " + group.PeopleGuids.Count + " Duration: " + (group.Duration));
+                                Console.WriteLine("Server: " + group.ServerIpPort + " Start: " + group.StartMinute + " Size: " + group.PeopleGuids.Count + " Duration: " + (group.Duration));
                                 topGroups.Add(group);
                             }
                     }
@@ -464,6 +519,7 @@ public class FindPatterns
                         if (countCompare != 0)
                             return countCompare;
                         return y.Duration.CompareTo(x.Duration);
+                 
                     });
 
                     string jsonString = JsonSerializer.Serialize(dedupedGroups);
@@ -568,9 +624,9 @@ public class FindPatterns
                                             }
                                         }
 
-                                        if (match1.Server == match2.Server)
-                                            if (match3.Server == match1.Server)
-                                                geHybrid.Server = match1.Server;
+                                        if (match1.ServerIpPort == match2.ServerIpPort)
+                                            if (match3.ServerIpPort == match1.ServerIpPort)
+                                                geHybrid.ServerIpPort = match1.ServerIpPort;
 
                                         // say it starts the time the last one started
                                         geHybrid.StartMinute = match1.StartMinute + FULL_WEEK;
@@ -610,7 +666,10 @@ public class FindPatterns
                 FriendlyGroupEvent fge = new FriendlyGroupEvent();
                 fge.StartMinute = futurejam.StartMinute;
                 fge.EndMinute = futurejam.EndMinute;
-                fge.Server = futurejam.Server;
+                fge.ServerIpPort = futurejam.ServerIpPort;
+                fge.ServerName = ServerNameMetadata(futurejam.ServerIpPort);
+                fge.ServerCity = ServerCityMetadata(futurejam.ServerIpPort);
+                fge.ServerCountry = ServerCountryMetadata(futurejam.ServerIpPort);
                 fge.People = new HashSet<MusicianMetadata>();
                 int iNumStreamers = 0;
                 foreach(var personGuid in futurejam.PeopleGuids)
@@ -625,8 +684,25 @@ public class FindPatterns
                     fp.Country = CountryMetadata(personGuid);
                     fge.People.Add(fp);
                 }
-                if(iNumStreamers < futurejam.PeopleGuids.Count / 2)
-                    friendlyEvents.Add(fge); // we only caare if it's not a majority streamers. screw those.
+
+                // we only caare if it's not a majority streamers. screw those.
+                if (iNumStreamers < futurejam.PeopleGuids.Count / 2)
+                {
+                    // the more newsworthy, the bigger window of display
+                    // # of people * 1 hour + 1 hour for known server + duration
+                    if (fge.StartMinute <
+                        MinuteSince2023AsInt()
+                            + 60 * fge.People.Count
+                            + (fge.ServerIpPort == null ? 0 : 60)
+                            + fge.Duration)
+                        friendlyEvents.Add(fge);
+                    else
+                        Console.WriteLine("Too far in the future.");
+                }
+                else
+                {
+                    Console.WriteLine("Too many streamers.");
+                }
             }
 
             // sort by start time
