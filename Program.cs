@@ -15,6 +15,7 @@ using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using System.Xml;
 using Microsoft.VisualBasic;
+using System.Runtime.CompilerServices;
 
 public class PersonOnServerAtTime
 {
@@ -274,10 +275,8 @@ public class FindPatterns
     static bool gfServerMetadataLoaded = false;
     static List<ServerMetadata> allServerMetadata = null;
 
-static string ServerNameMetadata(string ipPort)
+    static void LoadUp()
     {
-        if (ipPort == null)
-            return "";
         if (false == gfServerMetadataLoaded)
         {
             var reader = new StreamReader("servers_metadata.csv");
@@ -288,6 +287,15 @@ static string ServerNameMetadata(string ipPort)
             }
             gfServerMetadataLoaded = true;
         }
+    }
+
+
+    static string ServerNameMetadata(string ipPort)
+    {
+        if (ipPort == null)
+            return "";
+
+        LoadUp();
 
         foreach (var server in allServerMetadata)
             if (server.IpPort == ipPort)
@@ -298,6 +306,8 @@ static string ServerNameMetadata(string ipPort)
 
     static string ServerCityMetadata(string ipPort)
     {
+        LoadUp();
+
         foreach (var server in allServerMetadata)
             if (server.IpPort == ipPort)
                 return server.City;
@@ -567,13 +577,13 @@ static string ServerNameMetadata(string ipPort)
                 const int FULL_DAY = 60 * 24;
                 const int FULL_WEEK = FULL_DAY * 7;
 
-                var match1 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - FULL_WEEK, FULL_DAY);
+                var match1 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - FULL_WEEK, (FULL_DAY / 2));
                 if (null != match1)
                 {
-                    var match2 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 2 * FULL_WEEK, FULL_DAY);
+                    var match2 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 2 * FULL_WEEK, (FULL_DAY / 2));
                     if (null != match2)
                     {
-                        var match3 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 3 * FULL_WEEK, FULL_DAY);
+                        var match3 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 3 * FULL_WEEK, (FULL_DAY / 2));
                         if (null != match3)
                         {
                             //                        var match4 = AssembledAnyTimeRange(groupaGroupEvents, MinuteSince2023AsInt() - 4 * FULL_WEEK, 120);
