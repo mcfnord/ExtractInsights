@@ -655,10 +655,22 @@ public class FindPatterns
                                         }
 
                                         if (fAddIt)
-                                            chosen.Add(geHybrid);
-                                        //                                        Console.WriteLine(JsonSerializer.Serialize(geHybrid));
-                                        //                                        Console.WriteLine("============================");
+                                        {
+                                            int iPeopleVisibleNow = 0;
+                                            // ok, I don't show sets where more than half the people are already here.
+                                            foreach(var personGuid in geHybrid.PeopleGuids)
+                                            {
+                                                if (ExtractInsights.VisibleNow.UserVisibleNow(personGuid))
+                                                    iPeopleVisibleNow++;
+                                            }
 
+                                            if (iPeopleVisibleNow < geHybrid.PeopleGuids.Count / 2)
+                                            {
+                                                chosen.Add(geHybrid);
+                                            }
+                                            else
+                                                Console.WriteLine("too many are alreay present. not showin.");
+                                        }
                                     }
                                 }
                             }
@@ -690,6 +702,8 @@ public class FindPatterns
                     fp.Instrument = InstrumentMetadata(personGuid);
                     if (fp.Instrument == "Streamer")
                         iNumStreamers++;
+                    if(fp.Instrument == "Recorder")
+                        iNumStreamers++;
                     fp.City = CityMetadata(personGuid);
                     fp.Country = CountryMetadata(personGuid);
                     fge.People.Add(fp);
@@ -702,7 +716,7 @@ public class FindPatterns
                     // # of people * 1 hour + 1 hour for known server + duration
                     if (fge.StartMinute <
                         MinuteSince2023AsInt()
-                            + 60 * fge.People.Count
+                            + 90 * fge.People.Count 
                             + (fge.ServerIpPort == null ? 0 : 60)
                             + fge.Duration)
                         friendlyEvents.Add(fge);
