@@ -716,7 +716,7 @@ public class FindPatterns
                     // # of people * 1 hour + 1 hour for known server + duration
                     if (fge.StartMinute <
                         MinuteSince2023AsInt()
-                            + 90 * fge.People.Count 
+                            + 120 * fge.People.Count 
                             + (fge.ServerIpPort == null ? 0 : 60)
                             + fge.Duration)
                         friendlyEvents.Add(fge);

@@ -90,6 +90,7 @@ namespace ExtractInsights
                     httpClientHandler.ServerCertificateCustomValidationCallback = (message, cert, chain, ssl) => { return true; };
                     using var client = new HttpClient(httpClientHandler);
                     var g = client.GetStringAsync(JamulusListURLs[key]);
+                    g.Wait(); // wait for data to arrive
                     var newReportedList = g.Result; // only proceeds when data arrives
 
                     LastReportedList[bigKey] = newReportedList;
