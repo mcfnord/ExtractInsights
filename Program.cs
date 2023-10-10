@@ -16,6 +16,8 @@ using System.Xml.Linq;
 using System.Xml;
 using Microsoft.VisualBasic;
 using System.Runtime.CompilerServices;
+using Renci.SshNet;
+using System.Resources;
 
 public class PersonOnServerAtTime
 {
@@ -357,6 +359,12 @@ public class FindPatterns
 
     }
 
+
+    static string TuccUsFromFile()
+    {
+        var reader = new StreamReader("c:\\users\\user\\tucc.us");
+        return reader.ReadToEnd();
+    }
 
 
     public static void Main()
@@ -737,9 +745,20 @@ public class FindPatterns
             {
                 System.IO.File.WriteAllText("/var/www/html/predicted.json", jsonStringPredicted);
             }
-            catch( System.IO.DirectoryNotFoundException)
+            catch (System.IO.DirectoryNotFoundException)
             {
                 Console.WriteLine("Directory not found because debugging on Windows.");
+                System.IO.File.WriteAllText("predicted.json", jsonStringPredicted);
+
+                {
+                    ScpClient? scp = new ScpClient("tucc.us", "john", TuccUsFromFile());
+                    scp.Connect();
+                    string uploadedFileName = "predicted.json";
+                    scp.Upload(new FileInfo(uploadedFileName), "u/" + uploadedFileName);
+                        // , Path.GetFileName(uploadedFileName));
+                    File.Delete(uploadedFileName);
+                    scp.Disconnect();
+                }
             }
 
 
