@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Core.Renci.SshNet" Version="2021.10.2" />
     <PackageReference Include="CsvHelper" Version="30.0.1" />
   </ItemGroup>
 
