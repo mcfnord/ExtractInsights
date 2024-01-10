@@ -16,8 +16,11 @@ using System.Xml.Linq;
 using System.Xml;
 using Microsoft.VisualBasic;
 using System.Runtime.CompilerServices;
-using Renci.SshNet;
+// using Renci.SshNet;
 using System.Resources;
+// using WinSCP;
+using System.Security.Cryptography;
+using Renci.SshNet;
 
 public class PersonOnServerAtTime
 {
@@ -185,35 +188,19 @@ public class FindPatterns
 
     public static int MinuteSince2023AsInt()
     {
-        var now = DateTime.Now;
-        var then = new DateTime(2023, 1, 1);
+        // var now = DateTime.Now;
+        var now = DateTime.UtcNow;
+        // var then = new DateTime(2023, 1, 1);
+        var then = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var diff = now - then;
         // Format ToString to just show an int.
 
         int mins = (int)(diff.TotalMinutes);
-#if WINDOWS
-        mins += 420;
-#endif
-        return mins ;
+//#if WINDOWS
+//        mins += 420;
+//#endif
+        return mins;
     }
-
-
-
-    /* we aren't gonna use guidNamePairs
-    //     static bool fNamesLoaded = false;
-    // static Object nameMap = null;
-    static KeyValuePair<string, string>[] NameMap()
-    {
-        //        if (false == fNamesLoaded)
-        //        {
-        string s = System.IO.File.ReadAllText(@"c:\users\user\guidnamepairs.json");
-        return JsonSerializer.Deserialize<KeyValuePair<string, string>[]>(s);
-        //     fNamesLoaded = true;
-        //        }
-        //        return nameMap;
-    }
-    */
-
 
     // first time, load data.
     // from then on, use loaded data.
@@ -362,12 +349,12 @@ public class FindPatterns
 
     static string TuccUsFromFile()
     {
-        var reader = new StreamReader("c:\\users\\user\\tucc.us");
+        var reader = new StreamReader("tucc.us");
         return reader.ReadToEnd();
     }
 
 
-    public static void Main()
+    public static void Main(string[] args)
     {
         var dedupedGroups = new List<InternalGroupEvent>();
 
@@ -375,8 +362,19 @@ public class FindPatterns
         const string RAW_DATA_FILE = "cooked.json";
         while (true)
         {
+            bool fRecook = false;
+
             if (false == System.IO.File.Exists(RAW_DATA_FILE))
+                fRecook = true;
+
+            if (fRecook)
             {
+                // I'm gonna grab fresh remote files to local copies.
+                // shove.bat does this.
+                //DownloadFileAsync("https://jamulus.live/census_uniq.csv", "census_uniq.csv");
+                //DownloadFileAsync("https://jamulus.live/census_metadata.csv", "census_metadata.csv");
+                //DownloadFileAsync("https://jamulus.live/servers_metadata.csv", "servers_metadata.csv");
+
                 // Create a reader object and read the CSV file into a list of objects
                 var reader = new StreamReader("census_uniq.csv");
 
@@ -423,9 +421,9 @@ public class FindPatterns
                     foreach (var key in protoClique.Keys)
                     {
                         var group = new InternalGroupEvent();
-                        group.ServerIpPort = key.Substring(6);
-                        group.StartMinute = Int32.Parse(key.Substring(0, 6));
-                        group.EndMinute = Int32.Parse(key.Substring(0, 6)); // so zero duration at start, extended in next loop
+                        group.ServerIpPort = key.Substring(7);
+                        group.StartMinute = Int32.Parse(key.Substring(0, 7));
+                        group.EndMinute = Int32.Parse(key.Substring(0, 7)); // so zero duration at start, extended in next loop
                         group.PeopleGuids = protoClique[key];
                         groups.Add(group);
                     }
@@ -438,7 +436,7 @@ public class FindPatterns
                         while (stillTogether)
                         {
                             int nextMinute = group.EndMinute + 1;
-                            string nextKey = nextMinute.ToString() + group.ServerIpPort;
+                            string nextKey = nextMinute.ToString("D7") + group.ServerIpPort;
                             if (protoClique.ContainsKey(nextKey))
                             {
                                 // check if all the people in the group are in the next minute's clique
@@ -537,7 +535,7 @@ public class FindPatterns
                         if (countCompare != 0)
                             return countCompare;
                         return y.Duration.CompareTo(x.Duration);
-                 
+
                     });
 
                     string jsonString = JsonSerializer.Serialize(dedupedGroups);
@@ -666,7 +664,7 @@ public class FindPatterns
                                         {
                                             int iPeopleVisibleNow = 0;
                                             // ok, I don't show sets where more than half the people are already here.
-                                            foreach(var personGuid in geHybrid.PeopleGuids)
+                                            foreach (var personGuid in geHybrid.PeopleGuids)
                                             {
                                                 if (ExtractInsights.VisibleNow.UserVisibleNow(personGuid))
                                                     iPeopleVisibleNow++;
@@ -691,7 +689,7 @@ public class FindPatterns
 
             List<FriendlyGroupEvent> friendlyEvents = new List<FriendlyGroupEvent>();
 
-            foreach(var futurejam in chosen)
+            foreach (var futurejam in chosen)
             {
                 FriendlyGroupEvent fge = new FriendlyGroupEvent();
                 fge.StartMinute = futurejam.StartMinute;
@@ -702,7 +700,7 @@ public class FindPatterns
                 fge.ServerCountry = ServerCountryMetadata(futurejam.ServerIpPort);
                 fge.People = new HashSet<MusicianMetadata>();
                 int iNumStreamers = 0;
-                foreach(var personGuid in futurejam.PeopleGuids)
+                foreach (var personGuid in futurejam.PeopleGuids)
                 {
                     MusicianMetadata fp = new MusicianMetadata();
                     fp.Guid = personGuid;
@@ -710,7 +708,7 @@ public class FindPatterns
                     fp.Instrument = InstrumentMetadata(personGuid);
                     if (fp.Instrument == "Streamer")
                         iNumStreamers++;
-                    if(fp.Instrument == "Recorder")
+                    if (fp.Instrument == "Recorder")
                         iNumStreamers++;
                     fp.City = CityMetadata(personGuid);
                     fp.Country = CountryMetadata(personGuid);
@@ -724,7 +722,7 @@ public class FindPatterns
                     // # of people * 1 hour + 1 hour for known server + duration
                     if (fge.StartMinute <
                         MinuteSince2023AsInt()
-                            + 120 * fge.People.Count 
+                            + 120 * fge.People.Count
                             + (fge.ServerIpPort == null ? 0 : 60)
                             + fge.Duration)
                         friendlyEvents.Add(fge);
@@ -739,7 +737,7 @@ public class FindPatterns
 
             // sort by start time
             friendlyEvents.Sort((x, y) => x.StartMinute.CompareTo(y.StartMinute));
-            
+
             var jsonStringPredicted = JsonSerializer.Serialize(friendlyEvents);
             try
             {
@@ -749,29 +747,8 @@ public class FindPatterns
             {
                 Console.WriteLine("Directory not found because debugging on Windows.");
                 System.IO.File.WriteAllText("predicted.json", jsonStringPredicted);
-
-                {
-                    ScpClient? scp = new ScpClient("tucc.us", "john", TuccUsFromFile());
-                    scp.Connect();
-                    string uploadedFileName = "predicted.json";
-                    scp.Upload(new FileInfo(uploadedFileName), "u/" + uploadedFileName);
-                        // , Path.GetFileName(uploadedFileName));
-                    File.Delete(uploadedFileName);
-                    scp.Disconnect();
-                }
             }
-
-
-            string jsonStringFormatted = JsonSerializer.Serialize(jsonStringPredicted, new JsonSerializerOptions
-            {
-                WriteIndented = true // This option adds indentation for better readability
-            });
-
-            // Output the JSON string
-            Console.WriteLine(jsonStringFormatted);
-
-            Thread.Sleep(1000 * 60 * 5); // wait just 5 minutes because the ComingUp time gets stale.
+            Thread.Sleep(1000 * 60 * 5); // sleep five mins
         }
     }
 }
-
